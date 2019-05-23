@@ -21,8 +21,7 @@ from scipy import signal
 
 COIL_FILENAME = None
 OPTITRACK_FILENAME = None
-FILTER_TYPE = 'gaussian' # 'butter' is also acceptable
-FILTER_SIGMA = 1 # +/- hertz from nominal
+BUTTER_ORDER = 3 # small is more gaussian, large is more ideal
 
 # You may ignore this code
 # this just lets us pass in data filenames via the command line
@@ -47,6 +46,9 @@ if args.coil:
 coil_data = np.genfromtxt(COIL_FILENAME, skip_header=1, delimiter=",")
 optitrack_data = np.genfromtxt(OPTITRACK_FILENAME, skip_header=1, delimiter=",")
 
+# num samples / maximum timecode in the data
+SAMPLING_FREQUENCY = coil_data.shape[0] / coil_data[0][-1]
+
 # coil data is now an array shaped like the following
 # 1 | timestamp, coil1_Volts, coil2_Volts, coil3_Volts
 # 2 | timestamp, coil1_Volts, coil2_Volts, coil3_Volts
@@ -64,49 +66,110 @@ optitrack_data = np.genfromtxt(OPTITRACK_FILENAME, skip_header=1, delimiter=",")
 # STEP 1
 # get the coil data into a workable format. We need to separate each frequency
 # component
-# I do this with a gaussian filter of sigma = 1HZ, with truncation at 4sigma
-
-# remove the timestamps from the data
-channels = coil_data[:,1:]
-# calculate an FFT
-channels_fft = np.fft.fft(channels, axis=0)
+# I do this with a butterworth filter of tuneable order with a typical
+# cutoff of desired +/- 1hz
 
 # construct a quick frequency filtering function for convienence
 # uses scipy.signal.get_window to create the profile
-def freq_filter(data, low, high, fs):
-    """filters the data along axis=0 using a gaussian or butterworth filter to
+def freq_filter(data, low, high, order, fs):
+    """filters the data along axis=0 using butterworth filter to
     extract the correct frequency band
 
     Args:
         data (np.ndarray): the data to filter, shape can be arbitrary as long
             as samples is rows
-        low (float): the low cutoff of the gaussian band
-        high (float): the high cutoff of the gaussian band
+        low (float): the low cutoff of the filter (in HZ)
+        high (float): the high cutoff of the filter (in HZ)
+        order (int): the order of the butterworth filter,
+            this affects the shape of the filter frequency response
         fs (float): the sampling frequency
 
 
     Returns:
         np.ndarray : the filtered data
         np.ndarray : an array detailing the filter's frequency response
-
     """
 
+    # convert low and high as fraction of the nyquist frequency
+    nyquist = fs / 2
+    low_ = low / nyquist
+    high_ = high / nyquist
 
-    window = signal.gaussian
+    # apply the butterworth filter
+    b, a = signal.butter(order, [low_, high_], btype="band")
+    # WARNING, THIS MAY APPLY A PHASE SHIFT
+    # maybe use this instead? https://docs.scipy.org/doc/scipy-1.1.0/reference/generated/scipy.signal.filtfilt.html#scipy.signal.filtfilt
+    filtered = signal.lfilter(b, a, data, axis=0)
+
+    # calculate the frequency respone of the filter
+    # check frequencies from 10K to 22K
+    freq_to_check = np.linspace(10e3, 22e3, 2)
+    w, h = signal.freqz(b, a, worN=freq_to_check, fs=fs)
+    return filtered
+
+
+# remove the timestamps from the data
+channels = coil_data[:,1:]
+
+# apply our butterwoth filter
+filtered_12k = freq_filter(channels, 12e3-1, 12e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_16k = freq_filter(channels, 16e3-1, 16e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_20k = freq_filter(channels, 20e3-1, 20e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
+
+# stack all data into one array
+filtered = np.dstack( (filtered_12k, filtered_16k, filtered_20k) )
+# Data shape a 3D array containing the following
+# SAMPLES IS ROWS
+# COIL INDEX IS COLUMNS
+# FREQUENCY COMPONENT IS BANDS (the third dimension)
+
+
+################################################################################
+# STEP 2
+# Amplitude calculation
+# retreive the Amplitude of the waveform using hilbert transformation
+# see: https://www.gaussianwaves.com/2017/04/extracting-instantaneous-amplitude-phase-frequency-hilbert-transform/
+# and: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.hilbert.html
+
+analytical_sig = signal.hilbert(filtered, axis=0)
+amplitude = np.abs(analytical_sig)
+
+
+################################################################################
+# STEP 3
+# upsample optitrack data using nearest neighbor interpolation
+# NOTE: this may be improved by looking at timesamples and matching up
+# corresponding values - although I struggle to think of a fast way to do it
+
+# TIMESAMPLE method - this is relatively ugly and inefficient,
+# NOTE: a numpy.where approach would be much faster
+# but it should still be a relatively fast relative to the rest of the pipeline
+coil_timestamps = coil_data[:,0]
+optitrack_timestamps = optitrack_data[:,1]
+upsampled_frames = []
+# this next variable is intended to increase speed - hopefully turn from O(n^2) closer to O(N)
+coil_offset = 0
+
+# loop through and find the timestamps where 
+for i in range(optitrack_timestamps):
+    for j in range(coil_offset, coil_timestamps.size):
+        opti_t = optitrack_timestamps[i]
+        coil_t = optitrack_timestamps[j]
+        if coil_t <= opti_t:
+            upsampled_frames.append(optitrack_data[i])
+        else:
+            coil_offset = j
+            break
 
 
 
-    return freq_response
-
-freq_12k =
-freq_16k =
-freq_20k =
 
 
 
-# STEP 1 - downsample coil data to match the size of optitrack data
-# this is significant downsampling 100,000 HZ --> 240 HZ (or 120HZ)
-# for this, I simply averaged to downsample
+
+
+
+
 
 
 
