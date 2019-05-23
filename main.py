@@ -6,22 +6,24 @@ Some assumption that are made:
     1) optitrack and coil data are perfectly synced. This should in theory be true
     because optitrack triggers coil data collection
 
-    2) a gaussian filter with a frequency sigma of 1 Hz is appropriate to separate
-    out channels
-
-    3)
+    2)
 """
+COIL_FILENAME = None
+OPTITRACK_FILENAME = None
+BUTTER_ORDER = 3 # small is more gaussian, large is more ideal
 
+NOMINAL_12K_VOLTS = 1
+NOMINAL_16K_VOLTS = 1
+NOMINAL_20K_VOLTS = 1
 
-# first we need to import these
-# to access Python's scientific processing package (a "toolbox")
+###################### SETUP CODE - CAN BE SAFELY IGNORED ######################
+
+# first we need to import these to access Python's scientific
+# processing package (a "toolbox")
 import numpy as np
 import scipy
 from scipy import signal
 
-COIL_FILENAME = None
-OPTITRACK_FILENAME = None
-BUTTER_ORDER = 3 # small is more gaussian, large is more ideal
 
 # You may ignore this code
 # this just lets us pass in data filenames via the command line
@@ -30,14 +32,26 @@ import argparse
 parser = argparse.ArgumentParser()
 parse.add_argument("--opti", default = None)
 parse.add_argument("--coil", default = None)
+parse.add_argument("--order", default = None)
+parse.add_argument("--nom_12k", default = None)
+parse.add_argument("--nom_16k", default = None)
+parse.add_argument("--nom_20k", default = None)
 
 args = parser.parse_args()
 
 if args.opti:
     OPTITRACK_FILENAME = args.opti
-
 if args.coil:
     COIL_FILENAME = args.coil
+if args.order:
+    BUTTER_ORDER = args.order
+
+if args.nom_12k:
+    NOMINAL_12K_VOLTS = args.nom_12k
+if args.nom_16k:
+    NOMINAL_16K_VOLTS = args.nom_16k
+if args.nom_20k:
+    NOMINAL_20K_VOLTS = args.nom_20k
 
 ############################# REAL CODE STARTS HERE ############################
 
@@ -111,17 +125,12 @@ def freq_filter(data, low, high, order, fs):
 # remove the timestamps from the data
 channels = coil_data[:,1:]
 
-# apply our butterwoth filter
+# apply our butterworth filter
 filtered_12k = freq_filter(channels, 12e3-1, 12e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
 filtered_16k = freq_filter(channels, 16e3-1, 16e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
 filtered_20k = freq_filter(channels, 20e3-1, 20e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
-
-# stack all data into one array
-filtered = np.dstack( (filtered_12k, filtered_16k, filtered_20k) )
-# Data shape a 3D array containing the following
 # SAMPLES IS ROWS
 # COIL INDEX IS COLUMNS
-# FREQUENCY COMPONENT IS BANDS (the third dimension)
 
 
 ################################################################################
@@ -150,17 +159,64 @@ upsampled_frames = []
 # this next variable is intended to increase speed - hopefully turn from O(n^2) closer to O(N)
 coil_offset = 0
 
-# loop through and find the timestamps where 
+# loop through and duplicate optitrack data where timestamps match up
 for i in range(optitrack_timestamps):
     for j in range(coil_offset, coil_timestamps.size):
         opti_t = optitrack_timestamps[i]
         coil_t = optitrack_timestamps[j]
         if coil_t <= opti_t:
-            upsampled_frames.append(optitrack_data[i])
+            upsampled_frames.append(optitrack_data[i,:])
         else:
             coil_offset = j
             break
 
+# convert from list to array
+upsampled_opti = np.vstack(upsampled_frames)
+# sanity check - make sure that the upsampled optirack data has the same number of samples
+# as our amplitude array
+assert upsampled_opti.shape[0] == amplitude.shape[0]
+
+
+################################################################################
+# STEP 4
+# Calculate the rotation of each coil relative to each axis (nominal voltage)
+
+# sanity check/warning - see if the nominal voltage is smaller than the maximum
+# observed in the signal
+# 12 Khz
+max_12k = filtered_12k.max()
+max_16k = filtered_16k.max()
+max_20k = filtered_20k.max()
+if max_12k > NOMINAL_12K_VOLTS:
+    print("WARNING: 12Khz maximum ({}) is greater than the 12Khz Nominal ({})".format(max_12k, NOMINAL_12K_VOLTS))
+    print("WARNING: reseting 12K nominal to {}".format(max_12k))
+    NOMINAL_12K_VOLTS = max_12k
+
+if max_16k > NOMINAL_16K_VOLTS:
+    print("WARNING: 16Khz maximum ({}) is greater than the 16Khz Nominal ({})".format(max_16k, NOMINAL_16K_VOLTS))
+    print("WARNING: reseting 16K nominal to {}".format(max_16k))
+    NOMINAL_16K_VOLTS = max_16k
+
+if max_20k > NOMINAL_20K_VOLTS:
+    print("WARNING: 20Khz maximum ({}) is greater than the 20Khz Nominal ({})".format(max_20k, NOMINAL_20K_VOLTS))
+    print("WARNING: reseting 20K nominal to {}".format(max_20k))
+    NOMINAL_20K_VOLTS = max_20k
+
+
+    # magnetic flux through coil is proportial to the projected area of the coil
+    # coil_value ~ cos(theta) * nominal
+    # cos(theta) ~ coil_value / nominal
+    # theta = arccos( coil_value / nominal)
+
+# Divide by the nominal to normalize the data
+filtered_12k = filtered_12k / NOMINAL_12K_VOLTS
+filtered_16k = filtered_16k / NOMINAL_16K_VOLTS
+filtered_20k = filtered_20k / NOMINAL_20K_VOLTS
+
+# calculate each coils rotation relative to the field
+theta_12k = np.arccos( filtered_12k )
+theta_16k = np.arccos( filtered_16k )
+theta_20k = np.arccos( filtered_20k )
 
 
 
