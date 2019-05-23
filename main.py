@@ -16,6 +16,10 @@ NOMINAL_12K_VOLTS = 1
 NOMINAL_16K_VOLTS = 1
 NOMINAL_20K_VOLTS = 1
 
+SYS_PHASE_OFFSET_CH1 = 0
+SYS_PHASE_OFFSET_CH2 = 0
+SYS_PHASE_OFFSET_CH3 = 0
+
 ###################### SETUP CODE - CAN BE SAFELY IGNORED ######################
 
 # first we need to import these to access Python's scientific
@@ -33,12 +37,19 @@ parser = argparse.ArgumentParser()
 parse.add_argument("--opti", default = None)
 parse.add_argument("--coil", default = None)
 parse.add_argument("--order", default = None)
+
 parse.add_argument("--nom_12k", default = None)
 parse.add_argument("--nom_16k", default = None)
 parse.add_argument("--nom_20k", default = None)
 
+
+parse.add_argument("--sys_phase1", default = None)
+parse.add_argument("--sys_phase2", default = None)
+parse.add_argument("--sys_phase3", default = None)
+
 args = parser.parse_args()
 
+# overwrite global variables if provided
 if args.opti:
     OPTITRACK_FILENAME = args.opti
 if args.coil:
@@ -52,6 +63,11 @@ if args.nom_16k:
     NOMINAL_16K_VOLTS = args.nom_16k
 if args.nom_20k:
     NOMINAL_20K_VOLTS = args.nom_20k
+
+
+if args.sys_phase1:
+    SYS_PHASE_OFFSET_CH1
+
 
 ############################# REAL CODE STARTS HERE ############################
 
@@ -140,8 +156,23 @@ filtered_20k = freq_filter(channels, 20e3-1, 20e3+1, BUTTER_ORDER, SAMPLING_FREQ
 # see: https://www.gaussianwaves.com/2017/04/extracting-instantaneous-amplitude-phase-frequency-hilbert-transform/
 # and: https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.hilbert.html
 
-analytical_sig = signal.hilbert(filtered, axis=0)
-amplitude = np.abs(analytical_sig)
+# ANALYSICAL SIG TEST
+# analytical_sig = signal.hilbert(filtered, axis=0)
+# amplitude = np.abs(analytical_sig)
+# phase = np.angle(analytical_sig)
+
+# FFT SIG TEST
+fft_12k = np.fft.fft(filtered_12k, axis=0)
+amplitude_12k = np.abs(fft_12k)
+phase_12k = np.angle(fft_12k)
+
+fft_16k = np.fft.fft(filtered_16k, axis=0)
+amplitude_16k = np.abs(fft_16k)
+phase_16k = np.angle(fft_16k)
+
+fft_20k = np.fft.fft(filtered_20k, axis=0)
+amplitude_20k = np.abs(fft_20k)
+phase_20k = np.angle(fft_20k)
 
 
 ################################################################################
@@ -209,9 +240,9 @@ if max_20k > NOMINAL_20K_VOLTS:
     # theta = arccos( coil_value / nominal)
 
 # Divide by the nominal to normalize the data
-filtered_12k = filtered_12k / NOMINAL_12K_VOLTS
-filtered_16k = filtered_16k / NOMINAL_16K_VOLTS
-filtered_20k = filtered_20k / NOMINAL_20K_VOLTS
+amplitude_12k = amplitude_12k / NOMINAL_12K_VOLTS
+amplitude_16k = amplitude_16k / NOMINAL_16K_VOLTS
+amplitude_20k = amplitude_20k / NOMINAL_20K_VOLTS
 
 # calculate each coils rotation relative to the field
 theta_12k = np.arccos( filtered_12k )
