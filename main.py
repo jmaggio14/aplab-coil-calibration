@@ -198,7 +198,7 @@ coil_amp_12k, ref_amp_12k = amplitude_12k[:,:3], amplitude_12k[:,3:]
 coil_amp_16k, ref_amp_16k = amplitude_16k[:,:3], amplitude_16k[:,3:]
 coil_amp_20k, ref_amp_20k = amplitude_20k[:,:3], amplitude_20k[:,3:]
 
-# WE WILL DEAL WITH PHASE LATER IN STEP 6
+# WE WILL DEAL WITH PHASE LATER IN STEP 4
 
 
 ################################################################################
@@ -235,7 +235,7 @@ assert upsampled_opti.shape[0] == amplitude.shape[0]
 
 
 ################################################################################
-# STEP 5
+# STEP 4
 # account for the phase offset inherent in system measurement
 # this is usually caused by our amplifiers, which will have to be manually
 # measured with an oscilloscope and place in our calibration file
@@ -256,7 +256,7 @@ coil_phase_20k = uncalib_phase_12k[:,:,2] - SYS_PHASE_OFFSET_CH3
 
 
 ################################################################################
-# STEP 6
+# STEP 5
 # Calculate the rotation of each coil relative to each axis (nominal voltage)
 
 # sanity check/warning - see if the calibration mins and maxes don't line up with
