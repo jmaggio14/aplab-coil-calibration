@@ -1,7 +1,29 @@
 """
-Capture and Calibration Procedure
+RUEI PLEASE READ THIS!
 
+
+Capture and Calibration Procedure
+----------------------------------
 (will become more detailed and fleshed out as we develop hardware)
+
+1) Using an function generator, push a 16Khz through the channel 1 amp
+    - using a T connector and an oscilloscope:
+        * observe the waveforms for the amplified & raw signal
+        * record the phase offset (amplified_phase - raw_phase)
+        * this will become SYS_PHASE_OFFSET_CH1
+
+    ***repeat for all channels***
+    (maybe do this for each frequency? amps are wide band so they'll probably have a constant
+    phase offset as a function of frequency)
+
+2) using a to-be-made calibration box, align the measurment coil perpendicular
+to the axis to be measured.
+    - Run it through the filters we use in this file
+    - Record the value (this will become our CALIBRATION_MAX)
+
+3) align the coil parallel to the measurment axis
+    - Run it through the filters we use in this file
+    - Record the value (this will become our CALIBRATION_MIN)
 
 
 
@@ -10,21 +32,27 @@ Assumptions:
     1) optitrack and coil data are perfectly synced. This should in theory be true
     because optitrack triggers coil data collection
 
-    2)
 """
 COIL_FILENAME = None
 OPTITRACK_FILENAME = None
 BUTTER_ORDER = 3 # small is more gaussian, large is more ideal
 
 CALIBRATION_MAX_12K = 1
-NOMINAL_16K_VOLTS = 1
-NOMINAL_20K_VOLTS = 1
+CALIBRATION_MAX_16K = 1
+CALIBRATION_MAX_20K = 1
+
+CALIBRATION_MIN_12K = 1
+CALIBRATION_MIN_16K = 1
+CALIBRATION_MIN_20K = 1
 
 SYS_PHASE_OFFSET_CH1 = 0
 SYS_PHASE_OFFSET_CH2 = 0
 SYS_PHASE_OFFSET_CH3 = 0
 
 ###################### SETUP CODE - CAN BE SAFELY IGNORED ######################
+
+# TODO: swap out global variables for a calibration file
+
 
 # first we need to import these to access Python's scientific
 # processing package (a "toolbox")
@@ -38,20 +66,13 @@ from scipy import signal
 import argparse
 
 parser = argparse.ArgumentParser()
-parse.add_argument("--opti", default = None)
-parse.add_argument("--coil", default = None)
+parser.add_argument("--opti", default = None)
+parser.add_argument("--coil", default = None)
+parser.add_argument("--calib", default = None)
 
-parse.add_argument("--order", default = None)
 
-parse.add_argument("--max-12k", default = None)
-parse.add_argument("--max-16k", default = None)
-parse.add_argument("--max-20k", default = None)
-
-parse.add_argument("--phase_delay1", default = None)
-parse.add_argument("--phase_delay2", default = None)
-parse.add_argument("--phase_delay3", default = None)
-
-parse.add_argument("--force-calibration", default = False)
+parser.add_argument("--filter-order", default = None)
+parser.add_argument("--force-calibration", default = False)
 
 args = parser.parse_args()
 
@@ -60,23 +81,8 @@ if args.opti:
     OPTITRACK_FILENAME = args.opti
 if args.coil:
     COIL_FILENAME = args.coil
-if args.order:
-    BUTTER_ORDER = args.order
 
-if args.nom_12k:
-    CALIBRATION_MAX_12K = args.nom_12k
-if args.nom_16k:
-    NOMINAL_16K_VOLTS = args.nom_16k
-if args.nom_20k:
-    NOMINAL_20K_VOLTS = args.nom_20k
-
-
-if args.phase_delay1:
-    SYS_PHASE_OFFSET_CH1 = args.phase_delay1
-if args.phase_delay2:
-    SYS_PHASE_OFFSET_CH2 = args.phase_delay2
-if args.phase_delay2:
-    SYS_PHASE_OFFSET_CH2 = args.phase_delay2
+# TO DO LOAD - LOAD IN CALIBRATION FILE AND FURTHER DEFINE GLOBALS
 
 
 ############################# REAL CODE STARTS HERE ############################
@@ -89,7 +95,7 @@ optitrack_data = np.genfromtxt(OPTITRACK_FILENAME, skip_header=1, delimiter=",")
 # num samples / maximum timecode in the data
 SAMPLING_FREQUENCY = coil_data.shape[0] / coil_data[0][-1]
 
-# coil data is now an array shaped like the following
+# coil data is now an array shaped like the following (for 3 coils)
 # all coil units in volts
 # 1 | timestamp, coil1, coil2, coil3, ref_coil1, ref_coil2, ref_coil3
 # 2 | timestamp, coil1, coil2, coil3, ref_coil1, ref_coil2, ref_coil3
@@ -177,24 +183,22 @@ filtered_20k, _ = freq_filter(channels, 20e3-1, 20e3+1, BUTTER_ORDER, SAMPLING_F
 # FFT SIG TEST
 fft_12k = np.fft.fft(filtered_12k, axis=0)
 amplitude_12k = np.abs(fft_12k)
-phase_12k = np.angle(fft_12k)
+uncalib_phase_12k = np.angle(fft_12k)
 
 fft_16k = np.fft.fft(filtered_16k, axis=0)
 amplitude_16k = np.abs(fft_16k)
-phase_16k = np.angle(fft_16k)
+uncalib_phase_16k = np.angle(fft_16k)
 
 fft_20k = np.fft.fft(filtered_20k, axis=0)
 amplitude_20k = np.abs(fft_20k)
-phase_20k = np.angle(fft_20k)
+uncalib_phase_20k = np.angle(fft_20k)
 
 # break up measurement and reference coil data into separate arrays
 coil_amp_12k, ref_amp_12k = amplitude_12k[:,:3], amplitude_12k[:,3:]
 coil_amp_16k, ref_amp_16k = amplitude_16k[:,:3], amplitude_16k[:,3:]
 coil_amp_20k, ref_amp_20k = amplitude_20k[:,:3], amplitude_20k[:,3:]
 
-coil_phase_12k, ref_phase_12k = phase_12k[:,:3], phase_12k[:,3:]
-coil_phase_16k, ref_phase_16k = phase_16k[:,:3], phase_16k[:,3:]
-coil_phase_20k, ref_phase_20k = phase_20k[:,:3], phase_20k[:,3:]
+# WE WILL DEAL WITH PHASE LATER IN STEP 6
 
 
 ################################################################################
@@ -231,15 +235,28 @@ assert upsampled_opti.shape[0] == amplitude.shape[0]
 
 
 ################################################################################
-# STEP 6
+# STEP 5
 # account for the phase offset inherent in system measurement
-# we do this using calibration data using a specified mount
+# this is usually caused by our amplifiers, which will have to be manually
+# measured with an oscilloscope and place in our calibration file
 
+# it's easier here to stack all data into a single array and subtract our offset
+# the third axis which represents channels
+
+uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
+# this array only contains measurement coil data NOT reference coil data
+# SAMPLES IS ROWS
+# COIL INDEX IS COLUMNS
+# CHANNELS IS BANDS (third axis)
+
+coil_phase_12k = uncalib_phase_12k[:,:,0] - SYS_PHASE_OFFSET_CH1
+coil_phase_16k = uncalib_phase_12k[:,:,1] - SYS_PHASE_OFFSET_CH2
+coil_phase_20k = uncalib_phase_12k[:,:,2] - SYS_PHASE_OFFSET_CH3
 
 
 
 ################################################################################
-# STEP 5
+# STEP 6
 # Calculate the rotation of each coil relative to each axis (nominal voltage)
 
 # sanity check/warning - see if the calibration mins and maxes don't line up with
@@ -303,6 +320,10 @@ theta_12k = np.arccos( coil_amp_12k )
 theta_16k = np.arccos( coil_amp_16k )
 theta_20k = np.arccos( coil_amp_20k )
 
+
+
+################################################################################
+# STEP 7
 
 
 
