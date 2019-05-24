@@ -234,17 +234,13 @@ if max_20k > NOMINAL_20K_VOLTS:
     NOMINAL_20K_VOLTS = max_20k
 
 
-    # magnetic flux through coil is proportial to the projected area of the coil
-    # coil_value ~ cos(theta) * nominal
-    # cos(theta) ~ coil_value / nominal
-    # theta = arccos( coil_value / nominal)
-
-
     # where theta is such that parallel at theta=90, perpendicular at theta=0
-    # nominal would be a calibration constant, collected when the coil is perfectly perpendicular
+    # where nominal would be a calibration constant, collected when the coil is perfectly perpendicular
+    #
     # coil_voltage = cos(theta) * nominal_voltage
     # cos(theta) = coil_voltage / nominal_voltage | (in other words, we normalize it)
     # theta = arccos( coil_voltage / nominal) | this gives us the abs(angle)
+    #
     # we can use this to determine a normal vector component
 
 # Divide by the nominal to normalize the data
