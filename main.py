@@ -276,7 +276,7 @@ if coil_max_12k > CALIBRATION_MAX_12K:
     print("WARNING: reseting 12K nominal to {}".format(coil_max_12k))
     CALIBRATION_MAX_12K = coil_max_12k
 if coil_min_12k < CALIBRATION_MIN_12K:
-    print("WARNING: observed 12Khz minimum ({}) is greater than the 12Khz Calibration Minimum ({})".format(coil_min_12k, CALIBRATION_MIN_12K))
+    print("WARNING: observed 12Khz minimum ({}) is less than the 12Khz Calibration Minimum ({})".format(coil_min_12k, CALIBRATION_MIN_12K))
     print("WARNING: reseting 12K minimum to {}".format(coil_min_12k))
     CALIBRATION_MIN_12K = coil_min_12k
 
@@ -286,7 +286,7 @@ if coil_max_16k > CALIBRATION_MAX_16K:
     print("WARNING: reseting 16K nominal to {}".format(coil_max_16k))
     CALIBRATION_MAX_16K = coil_max_16k
 if coil_min_16k < CALIBRATION_MIN_16K:
-    print("WARNING: observed 16Khz minimum ({}) is greater than the 16Khz Calibration Minimum ({})".format(coil_min_16k, CALIBRATION_MIN_16K))
+    print("WARNING: observed 16Khz minimum ({}) is less than the 16Khz Calibration Minimum ({})".format(coil_min_16k, CALIBRATION_MIN_16K))
     print("WARNING: reseting 16K minimum to {}".format(coil_min_16k))
     CALIBRATION_MIN_16K = coil_min_16k
 
@@ -296,7 +296,7 @@ if coil_max_20k > CALIBRATION_MAX_20K:
     print("WARNING: reseting 20K nominal to {}".format(coil_max_20k))
     CALIBRATION_MAX_20K = coil_max_20k
 if coil_min_20k < CALIBRATION_MIN_20K:
-    print("WARNING: observed 20Khz minimum ({}) is greater than the 20Khz Calibration Minimum ({})".format(coil_min_20k, CALIBRATION_MIN_20K))
+    print("WARNING: observed 20Khz minimum ({}) is less than the 20Khz Calibration Minimum ({})".format(coil_min_20k, CALIBRATION_MIN_20K))
     print("WARNING: reseting 20K minimum to {}".format(coil_min_20k))
     CALIBRATION_MIN_20K = coil_min_20k
 
