@@ -239,15 +239,25 @@ if max_20k > NOMINAL_20K_VOLTS:
     # cos(theta) ~ coil_value / nominal
     # theta = arccos( coil_value / nominal)
 
+
+    # where theta is such that parallel at theta=90, perpendicular at theta=0
+    # nominal would be a calibration constant, collected when the coil is perfectly perpendicular
+    # coil_voltage = cos(theta) * nominal_voltage
+    # cos(theta) = coil_voltage / nominal_voltage | (in other words, we normalize it)
+    # theta = arccos( coil_voltage / nominal) | this gives us the abs(angle)
+    # we can use this to determine a normal vector component
+
 # Divide by the nominal to normalize the data
 amplitude_12k = amplitude_12k / NOMINAL_12K_VOLTS
 amplitude_16k = amplitude_16k / NOMINAL_16K_VOLTS
 amplitude_20k = amplitude_20k / NOMINAL_20K_VOLTS
 
 # calculate each coils rotation relative to the field
-theta_12k = np.arccos( filtered_12k )
-theta_16k = np.arccos( filtered_16k )
-theta_20k = np.arccos( filtered_20k )
+theta_12k = np.arccos( amplitude_12k )
+theta_16k = np.arccos( amplitude_16k )
+theta_20k = np.arccos( amplitude_20k )
+
+
 
 
 
