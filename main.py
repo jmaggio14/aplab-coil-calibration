@@ -29,8 +29,10 @@ to the axis to be measured.
 
 
 Assumptions:
-    1) optitrack and coil data are perfectly synced. This should in theory be true
-    because optitrack triggers coil data collection
+    1) optitrack and coil data are perfectly synced. (they are hardware synced,
+    so this should be the case to within 1/optitrack_framerate )
+
+    2) all three coils are perfectly orthagonal to each other
 
 """
 COIL_FILENAME = None
@@ -41,9 +43,9 @@ CALIBRATION_MAX_12K = 1
 CALIBRATION_MAX_16K = 1
 CALIBRATION_MAX_20K = 1
 
-CALIBRATION_MIN_12K = 1
-CALIBRATION_MIN_16K = 1
-CALIBRATION_MIN_20K = 1
+CALIBRATION_MIN_12K = 0
+CALIBRATION_MIN_16K = 0
+CALIBRATION_MIN_20K = 0
 
 SYS_PHASE_OFFSET_CH1 = 0
 SYS_PHASE_OFFSET_CH2 = 0
