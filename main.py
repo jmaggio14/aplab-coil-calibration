@@ -198,14 +198,12 @@ coil_amp_12k, ref_amp_12k = amplitude_12k[:,:3], amplitude_12k[:,3:]
 coil_amp_16k, ref_amp_16k = amplitude_16k[:,:3], amplitude_16k[:,3:]
 coil_amp_20k, ref_amp_20k = amplitude_20k[:,:3], amplitude_20k[:,3:]
 
-# WE WILL DEAL WITH PHASE LATER IN STEP 4
-
+# WE WILL DEAL WITH PHASE IN STEP 4
 
 ################################################################################
 # STEP 3
 # upsample optitrack data using nearest neighbor interpolation
-# NOTE: this may be improved by looking at timesamples and matching up
-# corresponding values - although I struggle to think of a fast way to do it
+
 
 # TIMESAMPLE method - this is relatively ugly and inefficient,
 # NOTE: a numpy.where approach would be much faster
@@ -238,21 +236,27 @@ assert upsampled_opti.shape[0] == amplitude.shape[0]
 # STEP 4
 # account for the phase offset inherent in system measurement
 # this is usually caused by our amplifiers, which will have to be manually
-# measured with an oscilloscope and place in our calibration file
+# measured with an oscilloscope and recorded in our calibration file
+
+# pull out the reference coil data before we forget about it
+ref_phase_12k = uncalib_phase_12k[:,3:]
+ref_phase_16k = uncalib_phase_16k[:,3:]
+ref_phase_20k = uncalib_phase_20k[:,3:]
 
 # it's easier here to stack all data into a single array and subtract our offset
 # the third axis which represents channels
-
 uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
-# this array only contains measurement coil data NOT reference coil data
+
+# ------------------------------------------------------------------------------
+# this array only contains measurement coil data NOT reference coil data!!!!!!!
+# ------------------------------------------------------------------------------
+
+coil_phase_12k = uncalib_coil_phase[:,:,0] - SYS_PHASE_OFFSET_CH1
+coil_phase_16k = uncalib_coil_phase[:,:,1] - SYS_PHASE_OFFSET_CH2
+coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
 # SAMPLES IS ROWS
 # COIL INDEX IS COLUMNS
 # CHANNELS IS BANDS (third axis)
-
-coil_phase_12k = uncalib_phase_12k[:,:,0] - SYS_PHASE_OFFSET_CH1
-coil_phase_16k = uncalib_phase_12k[:,:,1] - SYS_PHASE_OFFSET_CH2
-coil_phase_20k = uncalib_phase_12k[:,:,2] - SYS_PHASE_OFFSET_CH3
-
 
 
 ################################################################################
@@ -269,6 +273,11 @@ coil_max_20k = coil_amp_20k.max()
 coil_min_12k = coil_amp_12k.min()
 coil_min_16k = coil_amp_16k.min()
 coil_min_20k = coil_amp_20k.min()
+
+# --------------------------------------------------------------------------------
+## MICHELE AND RUEI
+## you can probably skip these if-statements, they are for debugging. not for computation
+# --------------------------------------------------------------------------------
 
 # 12K
 if coil_max_12k > CALIBRATION_MAX_12K:
@@ -301,8 +310,8 @@ if coil_min_20k < CALIBRATION_MIN_20K:
     CALIBRATION_MIN_20K = coil_min_20k
 
 
-# where theta is such that parallel at theta=90, perpendicular at theta=0
-# where nominal would be a calibration constant, collected when the coil is perfectly perpendicular
+# theta is such that parallel at theta=90, perpendicular at theta=0
+# calibration max and min would be collected when the coil is perfectly perpendicular or parallel respectively
 #
 # coil_voltage = cos(theta) * nominal_voltage
 # cos(theta) = coil_voltage / nominal_voltage | (in other words, we normalize it)
@@ -324,8 +333,79 @@ theta_20k = np.arccos( coil_amp_20k )
 
 ################################################################################
 # STEP 7
+# determine the direction of magnetic flux
+#
+# with system phase accounted for in the calibration procedure, the reference
+# coil and measurement coil phase should always be separated by a phase offset
+# of 0 or pi/2
+#
+# we should therefore be able to digitize this signal and use this along with
+# the theta calculated before to generate a unit vector indicating coil orientation
+#
+# if the flux is pass is passing through the coil front to back, then we are positve
+
+# subtact the reference phase from the measured phase
+relative_phase_12k = coil_phase_12k - ref_phase_12k
+relative_phase_16k = coil_phase_16k - ref_phase_16k
+relative_phase_20k = coil_phase_20k - ref_phase_20k
+
+# ------------------------------------------------------------------------------
+# MICHELE AND RUEI, PLEASE AUDIT ME HERE
+# STEPS 7 and 8 are where I feel least confident about my process
+#
+# how to account for a theoretical situation in which the relative phase
+# is greater than pi/2? maybe mod by pi/2
+# ------------------------------------------------------------------------------
+
+# all phase between 0 and pi/4 --> 0
+# all phase between pi/4 and pi/2 --> +1
+
+# use integer division to binarize the signal between 0 and 1
+# zeros in this case mean that the measurment coil's right-hand-rule vector
+# is parallel to the flux
+# everything in this array should be 0 or 1
+direction_12k = (relative_phase_12k // (np.pi/4))
+direction_16k =  (relative_phase_16k // (np.pi/4))
+direction_20k =  (relative_phase_20k // (np.pi/4))
+
+# 0 indicates the flux is going through the coil front to back
+# 1 indicates the flux is going through the coil back to front (angular rotation of 180 degrees)
+#
+# in effect, this array represents the following
+#        coil1      |       coil2       |     coil3
+#     ------------------------------------------------
+# 1)  front->back   |    back->front    |  front->back
+# 2)  front->back   |    front->back    |  back->front
+# 3)  front->back   |    front->back    |  front->back
+# ...
+#
+# ROWS IS SAMPLES
+# COLUMNS IS COILS
 
 
+################################################################################
+# STEP 8
+# combine amplitude-derived theta with our new direction information
+# this should just be equal to amplitude * (direction * pi)
+# the pi will rotate the value of theta 180 degrees
+
+rotation_12k = theta_12k + (direction_12k * np.pi)
+rotation_16k = theta_16k + (direction_16k * np.pi)
+rotation_20k = theta_20k + (direction_20k * np.pi)
+# ROWS IS SAMPLES
+# COLS IS COILS
+# VALUES ARE ROTATION RELATIVE TO THE MAGNETIC FLUX
+
+
+################################################################################
+# STEP 9
+# calculate the observed magnetic flux vector through the coil
+
+################################################################################
+# STEP 10
+# Calculate ideal magnetic flux vector using the optitrack data
+#
+# we now have the inf
 
 
 
