@@ -89,26 +89,18 @@ is stored in 2D arrays, where **rows are samples (or time)** and
   - calibration constants
   - raw data
 
-#### Step 1
+#### Step 1 _(line 118)_
 Filter out our desired frequencies using a butterworth bandpass filter
 
 We apply a butterworth filter of tunable order and width to **both the reference
 and measurement coil data**. This is done for 12, 16, and 20khz signals
 respectively which leaves us with separate variables for each.
 
-```python
-# apply our butterworth filter
-offset = BANDWIDTH / 2
-filtered_12k, _ = freq_filter(channels, 12e3-offset, 12e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_16k, _ = freq_filter(channels, 16e3-offset, 16e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_20k, _ = freq_filter(channels, 20e3-offset, 20e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
-```
-
 ###### Data products:
   - filter frequency responses (for later analysis / debugging)
   - 12k, 16k, & 20k voltages for every coil (raw X, Y, Z voltages)
 
-#### Step 2
+#### Step 2 _(line 179)_
 Calculate the amplitude of our signal as a function of time, and extract the
 uncalibrated phase information
 
@@ -116,19 +108,6 @@ uncalibrated phase information
 2. retrieve amplitude using absolute value
 3. Retrieve uncalibrated phase (this is phase with the phase shift of the amplifiers unaccounted for)
 
-```python
-fft_12k = np.fft.fft(filtered_12k, axis=0)
-amplitude_12k = np.abs(fft_12k)
-uncalib_phase_12k = np.angle(fft_12k)
-
-fft_16k = np.fft.fft(filtered_16k, axis=0)
-amplitude_16k = np.abs(fft_16k)
-uncalib_phase_16k = np.angle(fft_16k)
-
-fft_20k = np.fft.fft(filtered_20k, axis=0)
-amplitude_20k = np.abs(fft_20k)
-uncalib_phase_20k = np.angle(fft_20k)
-```
 
 ![rotation](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/rotation.PNG)
 
@@ -142,7 +121,7 @@ orientations for any given amplitude. We need more information...
   - ground truth phase of the reference coil
 
 
-#### Step 3
+#### Step 3 _(line 219)_
 We can now use the amplitude information to reduce the problem to four possible
 orientations of the coil.
 
@@ -151,24 +130,11 @@ proportional to the arctan()
 
 **With any given value of amplitude, there are four possible solutions**.
 
-```python
-# Normalize the amplitude
-coil_amp_12k = (coil_amp_12k - CALIBRATION_MIN_12K) / (CALIBRATION_MAX_12K - CALIBRATION_MIN_12K)
-coil_amp_16k = (coil_amp_16k - CALIBRATION_MIN_16K) / (CALIBRATION_MAX_16K - CALIBRATION_MIN_16K)
-coil_amp_20k = (coil_amp_20k - CALIBRATION_MIN_20K) / (CALIBRATION_MAX_20K - CALIBRATION_MIN_20K)
-
-# calculate each coils rotation relative to the field
-# This will give us an angle between 0 and pi/2 (which is one of only 4
-# possibilites)
-theta_12k = np.arccos( coil_amp_12k )
-theta_16k = np.arccos( coil_amp_16k )
-theta_20k = np.arccos( coil_amp_20k )
-```
 
 ![amplitude problem](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/amplitude_problem.PNG)
 
 
-#### Step 4
+#### Step 4 _(line 296)_
 Calibrate the phase
 
 We need to account for the system phase offset inherent in our system, for this
@@ -179,28 +145,12 @@ we once again rely on calibration constants.
   to be determined using an oscilloscope prior to data collection)
   _this is currently done equally for all frequencies in each channel_
 
-```python
-# it's easier here to stack all data into a single array and subtract our offset
-# from the third axis which represents channels
-uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
-# SAMPLES IS ROWS
-# COIL INDEX IS COLUMNS
-# CHANNELS IS BANDS (third axis)
-# ------------------------------------------------------------------------------
-# this array only contains measurement coil data NOT reference coil data!!!!!!!
-# ------------------------------------------------------------------------------
-
-coil_phase_12k = uncalib_coil_phase[:,:,0] - SYS_PHASE_OFFSET_CH1
-coil_phase_16k = uncalib_coil_phase[:,:,1] - SYS_PHASE_OFFSET_CH2
-coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
-```
-
 
 This offset is caused primarily by the amplifiers, however a pi/2 offset is
 also possible depending on the BNC connection wiring.
 
 
-#### Step 5
+#### Step 5 _(line 322)_
 Reduce the problem using relative phase
 
  - If the field lines pass through the coil back->front, then the measurement coil
@@ -215,59 +165,7 @@ to two possible solutions
 ![relative phase](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/relative_phase.PNG)
 
 
-```python
-# subtact the reference phase from the measured phase
-relative_phase_12k = coil_phase_12k - ref_phase_12k
-relative_phase_16k = coil_phase_16k - ref_phase_16k
-relative_phase_20k = coil_phase_20k - ref_phase_20k
-
-# ------------------------------------------------------------------------------
-# MICHELE AND RUEI, PLEASE AUDIT ME HERE
-# I could very well have made a mistake in this section
-#
-# how to account for a theoretical situation in which the relative phase
-# is greater than pi? maybe mod by pi or clip the array. This shouldn't happen, but might
-# happen as a result of measurement error or bad calibration
-# ------------------------------------------------------------------------------
-
-# all phase between 0 and pi/2 --> 0
-# all phase between pi/2 and pi --> +1
-
-# use integer division to binarize the signal between 0 and 1
-# zeros in this case mean that the measurement coil is parallel to the flux
-# everything in this array should be 0 or 1
-direction_12k = (relative_phase_12k // (np.pi/2))
-direction_16k =  (relative_phase_16k // (np.pi/2))
-direction_20k =  (relative_phase_20k // (np.pi/2))
-
-# 0 indicates the flux is going through the coil back to front
-# 1 indicates the flux is going through the coil front to back (angular rotation of 180 degrees)
-#
-# in effect, this array represents the following (example data)
-#        coil1      |       coil2       |     coil3
-#     ------------------------------------------------
-# 1)  front->back   |    back->front    |  front->back
-# 2)  front->back   |    front->back    |  back->front
-# 3)  front->back   |    front->back    |  front->back
-# ...
-#
-# ROWS IS SAMPLES
-# COLUMNS IS COILS
-
-# combine amplitude-derived theta with our new direction information
-# this should just be equal to amplitude * (direction * pi)
-# the pi will rotate the value of theta 180 degrees and eliminate two possible
-# solutions to the problem
-
-rotation_12k = theta_12k + (direction_12k * np.pi)
-rotation_16k = theta_16k + (direction_16k * np.pi)
-rotation_20k = theta_20k + (direction_20k * np.pi)
-# ROWS IS SAMPLES
-# COLUMNS IS COILS
-```
-
-
-#### Step 6
+#### Step 6 _(line 391)_
 Solve the system using a second orthogonal field
 
 So far we have been computing every axis completely independently from one
@@ -278,14 +176,6 @@ I'll let the figure do most of the talking here:
 
 
 ![two fields](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/two_fields.PNG)
-
-```python
-theta_12k = theta_12k * (direction_16k * np.pi/2)
-theta_16k = theta_16k * (direction_20k * np.pi/2)
-theta_20k = theta_20k * (direction_12k * np.pi/2)
-# This now contains the coil rotation relative to the field lines
-
-```
 
 
 
