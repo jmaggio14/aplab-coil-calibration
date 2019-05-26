@@ -160,9 +160,10 @@ def freq_filter(data, low, high, order, fs):
 channels = coil_data[:,1:]
 
 # apply our butterworth filter
-filtered_12k, _ = freq_filter(channels, 12e3-1, 12e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_16k, _ = freq_filter(channels, 16e3-1, 16e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_20k, _ = freq_filter(channels, 20e3-1, 20e3+1, BUTTER_ORDER, SAMPLING_FREQUENCY)
+offset = BANDWIDTH / 2
+filtered_12k, _ = freq_filter(channels, 12e3-offset, 12e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_16k, _ = freq_filter(channels, 16e3-offset, 16e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_20k, _ = freq_filter(channels, 20e3-offset, 20e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
 
 # SAMPLES IS ROWS
 # COIL INDEX IS COLUMNS
@@ -356,19 +357,18 @@ relative_phase_20k = coil_phase_20k - ref_phase_20k
 # STEPS 7 and 8 are where I feel least confident about my process
 #
 # how to account for a theoretical situation in which the relative phase
-# is greater than pi/2? maybe mod by pi/2
+# is greater than pi? maybe mod by pi
 # ------------------------------------------------------------------------------
 
 # all phase between 0 and pi/4 --> 0
 # all phase between pi/4 and pi/2 --> +1
 
 # use integer division to binarize the signal between 0 and 1
-# zeros in this case mean that the measurment coil's right-hand-rule vector
-# is parallel to the flux
+# zeros in this case mean that the measurment coil is parallel to the flux
 # everything in this array should be 0 or 1
-direction_12k = (relative_phase_12k // (np.pi/4))
-direction_16k =  (relative_phase_16k // (np.pi/4))
-direction_20k =  (relative_phase_20k // (np.pi/4))
+direction_12k = (relative_phase_12k // (np.pi/2))
+direction_16k =  (relative_phase_16k // (np.pi/2))
+direction_20k =  (relative_phase_20k // (np.pi/2))
 
 # 0 indicates the flux is going through the coil front to back
 # 1 indicates the flux is going through the coil back to front (angular rotation of 180 degrees)
