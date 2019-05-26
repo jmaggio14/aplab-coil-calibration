@@ -46,7 +46,7 @@ a known parameter (and likely increased). see
 [how this affects data collection here](https://www.electronics-tutorials.ws/amplifier/input-impedance-of-an-amplifier.html)
 
 **These amplifiers are configured in Inverting Mode - they apply a predictable
-phase shift of pi/2**
+phase shift of pi**
 
 ##### DAQ
 (PCIE-6346)
@@ -142,23 +142,6 @@ orientations for any given amplitude. We need more information...
   - ground truth phase of the reference coil
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #### Step 3
 We can now use the amplitude information to reduce the problem to four possible
 orientations of the coil.
@@ -245,15 +228,15 @@ relative_phase_20k = coil_phase_20k - ref_phase_20k
 # I could very well have made a mistake in this section
 #
 # how to account for a theoretical situation in which the relative phase
-# is greater than pi/2? maybe mod by pi/2 or clip the array. This shouldn't happen, but might
-# happen as a result of measurment error or bad calibration
+# is greater than pi? maybe mod by pi or clip the array. This shouldn't happen, but might
+# happen as a result of measurement error or bad calibration
 # ------------------------------------------------------------------------------
 
-# all phase between 0 and pi/4 --> 0
-# all phase between pi/4 and pi/2 --> +1
+# all phase between 0 and pi/2 --> 0
+# all phase between pi/2 and pi --> +1
 
 # use integer division to binarize the signal between 0 and 1
-# zeros in this case mean that the measurment coil is parallel to the flux
+# zeros in this case mean that the measurement coil is parallel to the flux
 # everything in this array should be 0 or 1
 direction_12k = (relative_phase_12k // (np.pi/2))
 direction_16k =  (relative_phase_16k // (np.pi/2))
