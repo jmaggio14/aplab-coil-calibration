@@ -323,7 +323,7 @@ coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
 # determine the direction of magnetic flux for each frequency
 # this reduces our problem to **2 possibile solutions**
 #
-# with system phase accounted for in the calibration procedure, the reference
+
 # coil and measurement coil phase should always be separated by a phase offset
 # of 0 or pi/2
 #
@@ -399,11 +399,6 @@ theta_12k = theta_12k * (direction_16k * np.pi/2)
 theta_16k = theta_16k * (direction_20k * np.pi/2)
 theta_20k = theta_20k * (direction_12k * np.pi/2)
 # This now contains the coil rotation relative to the field lines
-
-
-
-
-
 
 
 
