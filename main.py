@@ -98,6 +98,7 @@ optitrack_data = np.genfromtxt(OPTITRACK_FILENAME, skip_header=1, delimiter=",")
 
 # num samples / maximum timecode in the data
 SAMPLING_FREQUENCY = coil_data.shape[0] / coil_data[0][-1]
+NUM_COILS = coil_data.shape[1] - 4 # subtract 4 columns for timestamps column and 3 reference coil columns
 
 # coil data is now an array shaped like the following (for 3 coils)
 # all coil units in volts
@@ -163,10 +164,13 @@ channels = coil_data[:,1:]
 
 # apply our butterworth filter
 offset = BANDWIDTH / 2
-filtered_12k, _ = freq_filter(channels, 12e3-offset, 12e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_16k, _ = freq_filter(channels, 16e3-offset, 16e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
-filtered_20k, _ = freq_filter(channels, 20e3-offset, 20e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_12k, _ = freq_filter(channels[:NUM_COILS], 12e3-offset, 12e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_16k, _ = freq_filter(channels[:NUM_COILS], 16e3-offset, 16e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+filtered_20k, _ = freq_filter(channels[:NUM_COILS], 20e3-offset, 20e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
 
+ref_filtered_12k, _ freq_filter(channels[NUM_COILS], 12e3-offset, 12e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+ref_filtered_16k, _ freq_filter(channels[NUM_COILS+1], 16e3-offset, 16e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
+ref_filtered_20k, _ freq_filter(channels[NUM_COILS+2], 20e3-offset, 20e3+offset, BUTTER_ORDER, SAMPLING_FREQUENCY)
 # SAMPLES IS ROWS
 # COIL INDEX IS COLUMNS
 
@@ -187,22 +191,26 @@ filtered_20k, _ = freq_filter(channels, 20e3-offset, 20e3+offset, BUTTER_ORDER, 
 
 # FFT SIG TEST
 fft_12k = np.fft.fft(filtered_12k, axis=0)
-amplitude_12k = np.abs(fft_12k)
+coil_amp_12k = np.abs(fft_12k)
 uncalib_phase_12k = np.angle(fft_12k)
 
 fft_16k = np.fft.fft(filtered_16k, axis=0)
-amplitude_16k = np.abs(fft_16k)
+coil_amp_16k = np.abs(fft_16k)
 uncalib_phase_16k = np.angle(fft_16k)
 
 fft_20k = np.fft.fft(filtered_20k, axis=0)
-amplitude_20k = np.abs(fft_20k)
+coil_amp_20k = np.abs(fft_20k)
 uncalib_phase_20k = np.angle(fft_20k)
 
-# break up measurement and reference coil data into separate arrays
-coil_amp_12k, ref_amp_12k = amplitude_12k[:,:3], amplitude_12k[:,3:]
-coil_amp_16k, ref_amp_16k = amplitude_16k[:,:3], amplitude_16k[:,3:]
-coil_amp_20k, ref_amp_20k = amplitude_20k[:,:3], amplitude_20k[:,3:]
+# reference coil phase
+ref_fft_12k = np.fft.fft(ref_filtered_12k, axis=0)
+ref_phase_12k = np.angle(ref_fft_12k)
 
+ref_fft_16k = np.fft.fft(ref_filtered_16k, axis=0)
+ref_phase_16k = np.angle(ref_fft_16k)
+
+ref_fft_20k = np.fft.fft(ref_filtered_20k, axis=0)
+ref_phase_20k = np.angle(ref_fft_20k)
 # WE WILL DEAL WITH PHASE IN LATER STEPS
 
 
@@ -233,7 +241,7 @@ coil_min_20k = coil_amp_20k.min()
 # 12K
 if coil_max_12k > CALIBRATION_MAX_12K:
     print("WARNING: observed 12Khz maximum ({}) is greater than the 12Khz Calibration Maximum ({})".format(coil_max_12k, CALIBRATION_MAX_12K))
-    print("WARNING: reseting 12K nominal to {}".format(coil_max_12k))
+    print("WARNING: reseting 12K maximum to {}".format(coil_max_12k))
     CALIBRATION_MAX_12K = coil_max_12k
 if coil_min_12k < CALIBRATION_MIN_12K:
     print("WARNING: observed 12Khz minimum ({}) is less than the 12Khz Calibration Minimum ({})".format(coil_min_12k, CALIBRATION_MIN_12K))
@@ -243,7 +251,7 @@ if coil_min_12k < CALIBRATION_MIN_12K:
 # 16K
 if coil_max_16k > CALIBRATION_MAX_16K:
     print("WARNING: observed 16Khz maximum ({}) is greater than the 16Khz Calibration Maximum ({})".format(coil_max_16k, CALIBRATION_MAX_16K))
-    print("WARNING: reseting 16K nominal to {}".format(coil_max_16k))
+    print("WARNING: reseting 16K maximum to {}".format(coil_max_16k))
     CALIBRATION_MAX_16K = coil_max_16k
 if coil_min_16k < CALIBRATION_MIN_16K:
     print("WARNING: observed 16Khz minimum ({}) is less than the 16Khz Calibration Minimum ({})".format(coil_min_16k, CALIBRATION_MIN_16K))
@@ -253,7 +261,7 @@ if coil_min_16k < CALIBRATION_MIN_16K:
 # 20K
 if coil_max_20k > CALIBRATION_MAX_20K:
     print("WARNING: observed 20Khz maximum ({}) is greater than the 20Khz Calibration Maximum ({})".format(coil_max_20k, CALIBRATION_MAX_20K))
-    print("WARNING: reseting 20K nominal to {}".format(coil_max_20k))
+    print("WARNING: reseting 20K maximum to {}".format(coil_max_20k))
     CALIBRATION_MAX_20K = coil_max_20k
 if coil_min_20k < CALIBRATION_MIN_20K:
     print("WARNING: observed 20Khz minimum ({}) is less than the 20Khz Calibration Minimum ({})".format(coil_min_20k, CALIBRATION_MIN_20K))
@@ -264,7 +272,7 @@ if coil_min_20k < CALIBRATION_MIN_20K:
 # theta is such that parallel at theta=90, perpendicular at theta=0
 # calibration max and min would be collected when the coil is perfectly perpendicular or parallel respectively
 #
-# coil_voltage = cos(theta) * nominal_voltage
+# coil_voltage = cos(theta) * maximum_voltage
 # cos(theta) = coil_voltage / nominal_voltage | (in other words, we normalize it)
 # theta = arccos( coil_voltage / nominal) | this gives us the abs(angle)
 #
@@ -293,13 +301,11 @@ theta_20k = np.arccos( coil_amp_20k )
 # measured with an oscilloscope and recorded in our calibration file
 
 # pull out the reference coil data before we forget about it
-ref_phase_12k = uncalib_phase_12k[:,3:]
-ref_phase_16k = uncalib_phase_16k[:,3:]
-ref_phase_20k = uncalib_phase_20k[:,3:]
+
 
 # it's easier here to stack all data into a single array and subtract our offset
 # from the third axis which represents channels
-uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
+uncalib_coil_phase = np.dstack( (uncalib_phase_12k, uncalib_phase_16k, uncalib_phase_20k) )
 # ------------------------------------------------------------------------------
 # this array only contains measurement coil data NOT reference coil data!!!!!!!
 # ------------------------------------------------------------------------------
@@ -327,9 +333,9 @@ coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
 # if the flux is pass is passing through the coil back to front, then we are positve
 
 # subtact the reference phase from the measured phase
-relative_phase_12k = coil_phase_12k - ref_phase_12k
-relative_phase_16k = coil_phase_16k - ref_phase_16k
-relative_phase_20k = coil_phase_20k - ref_phase_20k
+relative_phase_12k = coil_phase_12k - np.hstack( [ref_phase_12k] * NUM_COILS)
+relative_phase_16k = coil_phase_16k - np.hstack( [ref_phase_16k] * NUM_COILS)
+relative_phase_20k = coil_phase_20k - np.hstack( [ref_phase_20k] * NUM_COILS)
 
 # ------------------------------------------------------------------------------
 # MICHELE AND RUEI, PLEASE AUDIT ME HERE
