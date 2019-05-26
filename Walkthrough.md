@@ -28,7 +28,7 @@ that is adequately measurable.
 
 **This coil is essentially zero-noise**
 
-![mc-95](images\mc-95-coil.jpeg)
+![mc-95](./images/mc-95-coil.jpeg)
 
 #### Amplifier
 **THS3001**
@@ -37,7 +37,7 @@ We amplify the coil signals using these amplifier evaluation boards, and modify
 their gain by swapping out a single surface-mount resistor in the feedback loop
 of the amp.
 
-![amps](images\amps.jpeg)
+![amps](./images/amps.jpeg)
 
 We've witnessed very little noise in these amplifiers - to the point where it
 is safe to consider negligible in the face of the read noise introduced by the
@@ -108,12 +108,12 @@ uncalibrated phase information
 2. retrieve amplitude using absolute value
 3. Retrieve uncalibrated phase (this is phase with the phase shift of the amplifiers unaccounted for)
 
-![amps](images\rotation.png)
+![amps](./images/rotation.png)
 
 However, we can't determine orientation with amplitude alone. There are four solveable
 orientations for any given amplitude. We need more information.
 
-![amps](images\amplitude_problem.png)
+![amps](./images/amplitude_problem.png)
 
 
 ###### Data products:
