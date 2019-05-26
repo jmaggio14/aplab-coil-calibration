@@ -369,9 +369,9 @@ direction_20k =  (relative_phase_20k // (np.pi/2))
 # the pi will rotate the value of theta 180 degrees and eliminate two possible
 # solutions to the problem
 
-rotation_12k = theta_12k + (direction_12k * np.pi)
-rotation_16k = theta_16k + (direction_16k * np.pi)
-rotation_20k = theta_20k + (direction_20k * np.pi)
+theta_12k = theta_12k + (direction_12k * np.pi)
+theta_16k = theta_16k + (direction_16k * np.pi)
+theta_20k = theta_20k + (direction_20k * np.pi)
 # ROWS IS SAMPLES
 # COLUMNS IS COILS
 
@@ -383,9 +383,16 @@ rotation_20k = theta_20k + (direction_20k * np.pi)
 
 ################################################################################
 # STEP 6
-# 
+# Solve the coil rotation using a second orthagonal axis
+#
+# So far we have been computing every axis completely independently from one
+# another. However to solve system, we'll need to check the relative phase of
+# a second field and determine whether an addition 45 degree rotation is necessary
 
-
+theta_12k = theta_12k * (direction_16k * np.pi/2)
+theta_16k = theta_16k * (direction_20k * np.pi/2)
+theta_20k = theta_20k * (direction_12k * np.pi/2)
+# This now contains the coil rotation relative to the field lines
 
 
 
