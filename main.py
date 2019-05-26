@@ -201,70 +201,21 @@ coil_amp_12k, ref_amp_12k = amplitude_12k[:,:3], amplitude_12k[:,3:]
 coil_amp_16k, ref_amp_16k = amplitude_16k[:,:3], amplitude_16k[:,3:]
 coil_amp_20k, ref_amp_20k = amplitude_20k[:,:3], amplitude_20k[:,3:]
 
-# WE WILL DEAL WITH PHASE IN STEP 4
+# WE WILL DEAL WITH PHASE IN LATER STEPS
+
+
 
 ################################################################################
 # STEP 3
-# upsample optitrack data using nearest neighbor interpolation
+# Calculate nominal rotation of the coil relative to the magnetic flux,
+# This reduces our problem to one of four angles - see "Amplitude Ambiguity"
+# diagram in the README for more information
 
 
-# TIMESAMPLE method - this is relatively ugly and inefficient,
-# NOTE: a numpy.where approach would be much faster
-# but it should still be a relatively fast relative to the rest of the pipeline
-coil_timestamps = coil_data[:,0]
-optitrack_timestamps = optitrack_data[:,1]
-upsampled_frames = []
-# this next variable is intended to increase speed - hopefully turn from O(n^2) closer to O(N)
-coil_offset = 0
-
-# loop through and duplicate optitrack data where timestamps match up
-for i in range(optitrack_timestamps):
-    for j in range(coil_offset, coil_timestamps.size):
-        opti_t = optitrack_timestamps[i]
-        coil_t = optitrack_timestamps[j]
-        if coil_t <= opti_t:
-            upsampled_frames.append(optitrack_data[i,:])
-        else:
-            coil_offset = j
-            break
-
-# convert from list to array
-upsampled_opti = np.vstack(upsampled_frames)
-# sanity check - make sure that the upsampled optirack data has the same number of samples
-# as our amplitude array
-assert upsampled_opti.shape[0] == amplitude.shape[0]
-
-
-################################################################################
-# STEP 4
-# account for the phase offset inherent in system measurement
-# this is usually caused by our amplifiers, which will have to be manually
-# measured with an oscilloscope and recorded in our calibration file
-
-# pull out the reference coil data before we forget about it
-ref_phase_12k = uncalib_phase_12k[:,3:]
-ref_phase_16k = uncalib_phase_16k[:,3:]
-ref_phase_20k = uncalib_phase_20k[:,3:]
-
-# it's easier here to stack all data into a single array and subtract our offset
-# the third axis which represents channels
-uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
-
-# ------------------------------------------------------------------------------
-# this array only contains measurement coil data NOT reference coil data!!!!!!!
-# ------------------------------------------------------------------------------
-
-coil_phase_12k = uncalib_coil_phase[:,:,0] - SYS_PHASE_OFFSET_CH1
-coil_phase_16k = uncalib_coil_phase[:,:,1] - SYS_PHASE_OFFSET_CH2
-coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
-# SAMPLES IS ROWS
-# COIL INDEX IS COLUMNS
-# CHANNELS IS BANDS (third axis)
-
-
-################################################################################
-# STEP 5
-# Calculate the rotation of each coil relative to each axis (nominal voltage)
+# --------------------------------------------------------------------------------
+## MICHELE AND RUEI
+## you can probably skip these if-statements, they are for debugging. not for computation
+# --------------------------------------------------------------------------------
 
 # sanity check/warning - see if the calibration mins and maxes don't line up with
 # what was observed in the signal
@@ -276,11 +227,6 @@ coil_max_20k = coil_amp_20k.max()
 coil_min_12k = coil_amp_12k.min()
 coil_min_16k = coil_amp_16k.min()
 coil_min_20k = coil_amp_20k.min()
-
-# --------------------------------------------------------------------------------
-## MICHELE AND RUEI
-## you can probably skip these if-statements, they are for debugging. not for computation
-# --------------------------------------------------------------------------------
 
 # 12K
 if coil_max_12k > CALIBRATION_MAX_12K:
@@ -328,6 +274,8 @@ coil_amp_16k = (coil_amp_16k - CALIBRATION_MIN_16K) / (CALIBRATION_MAX_16K - CAL
 coil_amp_20k = (coil_amp_20k - CALIBRATION_MIN_20K) / (CALIBRATION_MAX_20K - CALIBRATION_MIN_20K)
 
 # calculate each coils rotation relative to the field
+# This will give us an angle between 0 and pi/2 (which is one of only 4
+# possibilites)
 theta_12k = np.arccos( coil_amp_12k )
 theta_16k = np.arccos( coil_amp_16k )
 theta_20k = np.arccos( coil_amp_20k )
@@ -335,8 +283,37 @@ theta_20k = np.arccos( coil_amp_20k )
 
 
 ################################################################################
-# STEP 7
-# determine the direction of magnetic flux
+# STEP 4
+# Calibrate the phase information
+#
+# account for the phase offset inherent in system measurement
+# this is usually caused by our amplifiers, which will have to be manually
+# measured with an oscilloscope and recorded in our calibration file
+
+# pull out the reference coil data before we forget about it
+ref_phase_12k = uncalib_phase_12k[:,3:]
+ref_phase_16k = uncalib_phase_16k[:,3:]
+ref_phase_20k = uncalib_phase_20k[:,3:]
+
+# it's easier here to stack all data into a single array and subtract our offset
+# from the third axis which represents channels
+uncalib_coil_phase = np.dstack( (uncalib_phase_12k[:,:3], uncalib_phase_16k[:,:3], uncalib_phase_20k[:,:3]) )
+# ------------------------------------------------------------------------------
+# this array only contains measurement coil data NOT reference coil data!!!!!!!
+# ------------------------------------------------------------------------------
+
+coil_phase_12k = uncalib_coil_phase[:,:,0] - SYS_PHASE_OFFSET_CH1
+coil_phase_16k = uncalib_coil_phase[:,:,1] - SYS_PHASE_OFFSET_CH2
+coil_phase_20k = uncalib_coil_phase[:,:,2] - SYS_PHASE_OFFSET_CH3
+# SAMPLES IS ROWS
+# COIL INDEX IS COLUMNS
+# CHANNELS IS BANDS (third axis)
+
+
+################################################################################
+# STEP 5
+# determine the direction of magnetic flux for each frequency
+# this reduces our problem to **2 possibile solutions**
 #
 # with system phase accounted for in the calibration procedure, the reference
 # coil and measurement coil phase should always be separated by a phase offset
@@ -345,7 +322,7 @@ theta_20k = np.arccos( coil_amp_20k )
 # we should therefore be able to digitize this signal and use this along with
 # the theta calculated before to generate a unit vector indicating coil orientation
 #
-# if the flux is pass is passing through the coil front to back, then we are positve
+# if the flux is pass is passing through the coil back to front, then we are positve
 
 # subtact the reference phase from the measured phase
 relative_phase_12k = coil_phase_12k - ref_phase_12k
@@ -354,10 +331,11 @@ relative_phase_20k = coil_phase_20k - ref_phase_20k
 
 # ------------------------------------------------------------------------------
 # MICHELE AND RUEI, PLEASE AUDIT ME HERE
-# STEPS 7 and 8 are where I feel least confident about my process
+# I could very well have made a mistake in this section
 #
 # how to account for a theoretical situation in which the relative phase
-# is greater than pi? maybe mod by pi
+# is greater than pi/2? maybe mod by pi/2 or clip the array. This shouldn't happen, but might
+# happen as a result of measurment error or bad calibration
 # ------------------------------------------------------------------------------
 
 # all phase between 0 and pi/4 --> 0
@@ -370,10 +348,10 @@ direction_12k = (relative_phase_12k // (np.pi/2))
 direction_16k =  (relative_phase_16k // (np.pi/2))
 direction_20k =  (relative_phase_20k // (np.pi/2))
 
-# 0 indicates the flux is going through the coil front to back
-# 1 indicates the flux is going through the coil back to front (angular rotation of 180 degrees)
+# 0 indicates the flux is going through the coil back to front
+# 1 indicates the flux is going through the coil front to back (angular rotation of 180 degrees)
 #
-# in effect, this array represents the following
+# in effect, this array represents the following (example data)
 #        coil1      |       coil2       |     coil3
 #     ------------------------------------------------
 # 1)  front->back   |    back->front    |  front->back
@@ -384,19 +362,21 @@ direction_20k =  (relative_phase_20k // (np.pi/2))
 # ROWS IS SAMPLES
 # COLUMNS IS COILS
 
-
-################################################################################
-# STEP 8
 # combine amplitude-derived theta with our new direction information
 # this should just be equal to amplitude * (direction * pi)
-# the pi will rotate the value of theta 180 degrees
+# the pi will rotate the value of theta 180 degrees and eliminate two possible
+# solutions to the problem
 
 rotation_12k = theta_12k + (direction_12k * np.pi)
 rotation_16k = theta_16k + (direction_16k * np.pi)
 rotation_20k = theta_20k + (direction_20k * np.pi)
 # ROWS IS SAMPLES
-# COLS IS COILS
-# VALUES ARE ROTATION RELATIVE TO THE MAGNETIC FLUX
+# COLUMNS IS COILS
+
+# --------------------------------------------------------------------------------
+# There are now two possible solutions to our problem, see figure 3 for
+# the explanation why
+# --------------------------------------------------------------------------------
 
 
 ################################################################################
@@ -417,15 +397,37 @@ rotation_20k = theta_20k + (direction_20k * np.pi)
 
 
 
+################################################################################
+# STEP
+
+# upsample optitrack data using nearest neighbor interpolation
 
 
+# TIMESAMPLE method - this is relatively ugly and inefficient,
+# NOTE: a numpy.where approach would be much faster
+# but it should still be a relatively fast relative to the rest of the pipeline
+coil_timestamps = coil_data[:,0]
+optitrack_timestamps = optitrack_data[:,1]
+upsampled_frames = []
+# this next variable is intended to increase speed - hopefully turn from O(n^2) closer to O(N)
+coil_offset = 0
 
+# loop through and duplicate optitrack data where timestamps match up
+for i in range(optitrack_timestamps):
+    for j in range(coil_offset, coil_timestamps.size):
+        opti_t = optitrack_timestamps[i]
+        coil_t = optitrack_timestamps[j]
+        if coil_t <= opti_t:
+            upsampled_frames.append(optitrack_data[i,:])
+        else:
+            coil_offset = j
+            break
 
-
-
-
-
-
+# convert from list to array
+upsampled_opti = np.vstack(upsampled_frames)
+# sanity check - make sure that the upsampled optirack data has the same number of samples
+# as our amplitude array
+assert upsampled_opti.shape[0] == amplitude.shape[0]
 
 
 
