@@ -108,12 +108,12 @@ uncalibrated phase information
 2. retrieve amplitude using absolute value
 3. Retrieve uncalibrated phase (this is phase with the phase shift of the amplifiers unaccounted for)
 
-![rotation](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/rotation.png)
+![rotation](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/rotation.PNG)
 
 However, we can't determine orientation with amplitude alone. There are four solveable
 orientations for any given amplitude. We need more information.
 
-![amplitude problem](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/amplitude_problem.png)
+![amplitude problem](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/amplitude_problem.PNG)
 
 
 ###### Data products:
