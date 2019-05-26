@@ -37,7 +37,9 @@ Assumptions:
 """
 COIL_FILENAME = None
 OPTITRACK_FILENAME = None
+
 BUTTER_ORDER = 3 # small is more gaussian, large is more ideal
+BANDWIDTH = 2 # HZ
 
 CALIBRATION_MAX_12K = 1
 CALIBRATION_MAX_16K = 1
@@ -60,7 +62,7 @@ SYS_PHASE_OFFSET_CH3 = 0
 # processing package (a "toolbox")
 import numpy as np
 import scipy
-from scipy import signal
+from scipy import signal, interpolate
 
 
 # You may ignore this code
@@ -380,14 +382,9 @@ rotation_20k = theta_20k + (direction_20k * np.pi)
 
 
 ################################################################################
-# STEP 9
-# calculate the observed magnetic flux vector through the coil
+# STEP 6
+# 
 
-################################################################################
-# STEP 10
-# Calculate ideal magnetic flux vector using the optitrack data
-#
-# we now have the inf
 
 
 
@@ -401,33 +398,6 @@ rotation_20k = theta_20k + (direction_20k * np.pi)
 # STEP
 
 # upsample optitrack data using nearest neighbor interpolation
-
-
-# TIMESAMPLE method - this is relatively ugly and inefficient,
-# NOTE: a numpy.where approach would be much faster
-# but it should still be a relatively fast relative to the rest of the pipeline
-coil_timestamps = coil_data[:,0]
-optitrack_timestamps = optitrack_data[:,1]
-upsampled_frames = []
-# this next variable is intended to increase speed - hopefully turn from O(n^2) closer to O(N)
-coil_offset = 0
-
-# loop through and duplicate optitrack data where timestamps match up
-for i in range(optitrack_timestamps):
-    for j in range(coil_offset, coil_timestamps.size):
-        opti_t = optitrack_timestamps[i]
-        coil_t = optitrack_timestamps[j]
-        if coil_t <= opti_t:
-            upsampled_frames.append(optitrack_data[i,:])
-        else:
-            coil_offset = j
-            break
-
-# convert from list to array
-upsampled_opti = np.vstack(upsampled_frames)
-# sanity check - make sure that the upsampled optirack data has the same number of samples
-# as our amplitude array
-assert upsampled_opti.shape[0] == amplitude.shape[0]
 
 
 

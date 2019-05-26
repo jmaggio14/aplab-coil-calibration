@@ -168,8 +168,6 @@ theta_20k = np.arccos( coil_amp_20k )
 ![amplitude problem](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/amplitude_problem.PNG)
 
 
-### IGNORE PAST THIS POINT
-
 #### Step 4
 Calibrate the phase
 
@@ -269,12 +267,23 @@ rotation_20k = theta_20k + (direction_20k * np.pi)
 ```
 
 
+#### Step 6
+Solve the system using a second orthogonal field
+
+So far we have been computing every axis completely independently from one
+another. However to solve system, we'll need to check the relative phase of
+a second field and determine whether an addition 45 degree rotation is necessary
+
+I'll let the figure do most of the talking here:
+
+
+![two fields](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/two_fields.PNG)
 
 
 
 
 
-#### Step 3
+#### Step
 Upsample optitrack data to match coil data using nearest-neighbors
 
 1. compare timecodes between coil and optitrack data, and repeat optitrack frame
