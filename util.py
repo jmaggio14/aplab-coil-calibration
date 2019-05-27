@@ -29,26 +29,32 @@ class DataGenerator():
 
 
 
-    def coil_data(self, axes, rates):
-        data = []
-        references = []
-        for axis, rate in zip(axes, rates):
-            # calculate the carrier wave (field) oscillations
-            nsamples_coil = self.coil_sample_rate * self.duration
-            max_phase = AXIS_FREQS[axis] * self.duration * 2 * np.pi
+    def coil_data(self, axis, rate):
+        """Generates simulated coil data rotating about the specified axis
+        at the specified rate.
+        """
 
-            phi = np.linspace(0, max_phase, nsamples)
-            # calculate the reference coil output as a normalized
-            reference = np.sin(phi).reshape( (nsamples,1) )
-            max_emf = (reference * self.cal_max) + self.cal_min
 
-            # calculate the effect of the coil rotation on the waveform
-            max_rotation = rate * self.duration * 2 * np.pi
-            theta = np.linspace(0, max_rotation, nsamples).reshape((nsamples, 1))
-            rotation = np.sin(theta)
 
-            # we now construct the sample data by multiplying our rotation_waveform
-            # with our maximum emf as a function of time
-            data.append( (rotation * max_emf) )
+        # data = []
+        # references = []
+        # for axis, rate in zip(axes, rates):
+        #     # calculate the carrier wave (field) oscillations
+        #     nsamples_coil = self.coil_sample_rate * self.duration
+        #     max_phase = AXIS_FREQS[axis] * self.duration * 2 * np.pi
+        #
+        #     phi = np.linspace(0, max_phase, nsamples)
+        #     # calculate the reference coil output as a normalized
+        #     reference = np.sin(phi).reshape( (nsamples,1) )
+        #     max_emf = (reference * self.cal_max) + self.cal_min
+        #
+        #     # calculate the effect of the coil rotation on the waveform
+        #     max_rotation = rate * self.duration * 2 * np.pi
+        #     theta = np.linspace(0, max_rotation, nsamples).reshape((nsamples, 1))
+        #     rotation = np.sin(theta)
+        #
+        #     # we now construct the sample data by multiplying our rotation_waveform
+        #     # with our maximum emf as a function of time
+        #     data.append( (rotation * max_emf) )
 
         return np.hstack( data ), reference
