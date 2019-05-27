@@ -55,4 +55,5 @@ fig = plt.figure()
 
 plt.hist(data)
 plt.axvline(avg,color='black')
+plt.savefig(str(DC_VOLTAGE) + 'mv.png')
 plt.show()
