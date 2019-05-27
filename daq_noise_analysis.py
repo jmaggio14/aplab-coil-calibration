@@ -40,11 +40,12 @@ import matplotlib.pyplot as plt
 
 FILENAME = "DAQ_noise_characterization/FG_50mv_dc.csv"
 DC_VOLTAGE = 50e-3 #Volts
+NUM_BINS = 100
 
 data = np.genfromtxt(FILENAME, skip_header=1, usecols=(1,), delimiter=",")
 
-#subtract the DC voltage so we are only looking at the noise
-data = data - DC_VOLTAGE
+#convert to millivolts
+data = data * 1000
 
 # find average and std
 avg = np.mean(data)
@@ -53,7 +54,11 @@ std = np.std(data)
 # plot the curve
 fig = plt.figure()
 
-plt.hist(data)
+axes = plt.hist(data, NUM_BINS)
+
+plt.xlabel("Voltage (volts)")
+plt.set_xticks()
+
 plt.axvline(avg,color='black')
 plt.savefig(str(DC_VOLTAGE) + 'mv.png')
 plt.show()
