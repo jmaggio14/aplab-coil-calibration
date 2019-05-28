@@ -146,7 +146,7 @@ we once again rely on calibration constants.
   _this is currently done equally for all frequencies in each channel_
 
 
-This offset is caused primarily by the amplifiers, however a pi/2 offset is
+This offset is caused primarily by the amplifiers, however a pi offset is
 also possible depending on the BNC connection wiring.
 
 
@@ -157,7 +157,7 @@ Reduce the problem using relative phase
 will have the _same phase as the reference coil_
 
  - If the field lines pass through the coil front->back, then the measurement coil
-will have a _phase shift of pi/2_
+will have a _phase shift of pi_
 
 By calculating the relative phase between the two coils, we can reduce our problem
 to two possible solutions

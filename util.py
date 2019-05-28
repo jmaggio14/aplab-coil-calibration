@@ -33,6 +33,7 @@ class DataGenerator():
         """Generates simulated coil data rotating about the specified axis
         at the specified rate.
         """
+        
 
 
 
