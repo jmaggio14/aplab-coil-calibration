@@ -178,13 +178,5 @@ I'll let the figure do most of the talking here:
 ![two fields](https://raw.githubusercontent.com/jmaggio14/aplab-coil-calibration/master/images/two_fields.PNG)
 
 
-
-#### Step
-Upsample optitrack data to match coil data using nearest-neighbors
-
-1. compare timecodes between coil and optitrack data, and repeat optitrack frame
-while looping through coil data until optitrack timecode is smaller than the
-coil timecode
-
-###### Data products:
-- upsampled optitrack data
+At this point, we should have a variable theta which represents the rotation
+relative to the reference coil.
